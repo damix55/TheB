@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load app_filters %}
+{% load mptt_tags %}
+{% load static %}
+
+{% block 'title' %}
+{% if project.title == 'the-b' %}
+  The B
+{% else %}
+  {{ project.name }} - The B
+{% endif %}
+{% endblock %}
+
+{% block 'head' %}
+  <link rel="stylesheet" href="{% static 'css/bootstrap-treeview.css' %}">
+  <!-- <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.1/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous"> -->
+{% endblock %}
+
+{% block 'js' %}
+  <script src="{% static 'js/bootstrap-treeview.js' %}"></script>
+  <script>
+
+
+
+    function getTree() {
+      var tree =
+      {
+      {% drilldown_tree_for_node project as p %}
+        {% for node, structure in p|tree_info %}
+          {% node_filter node.level project.level node.state as visible %}
+          {% if visible %}
+            {% if structure.new_level %}
+              nodes: [
+            {% else %}
+              },
+            {% endif %}
+              {
+                {% if project != node %}
+                  // selectable: false,
+                {% endif %}
+                  text: "{{ node.name }}",
+                  href_li: "/project/{{ node.title }}",
+                  {% if project == node %}
+                  state: {
+                    selected: true
+                  },
+                  {% endif %}
+
+          {% endif %}
+          {% for level in structure.closed_levels %}
+            {% node_filter level project.level project.state as visible %}
+            {% if visible %}
+              }]
+            {% endif %}
+          {% endfor %}
+
+        {% endfor %}
+        };
+      return tree.nodes;
+    }
+
+    $('#tree').treeview(
+      {
+        data: getTree(),
+        showIcon : false,
+      }
+    );
+  </script>
+
+  <script>
+    // Set the date we're counting down to
+    var countDownDate = new Date("{{ project.expiration_time }} 00:00:00").getTime();
+
+    // Update the count down every 1 second
+    var x = setInterval(function() {
+
+      // Get todays date and time
+      var now = new Date().getTime();
+
+      // Find the distance between now and the count down date
+      var distance = countDownDate - now;
+
+      // Time calculations for days, hours, minutes and seconds
+      var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      // Display the result in the element with id="countdown"
+      document.getElementById("countdown").innerHTML = "<strong>Expires in: </strong>" + days + "d " + hours + "h "
+      + minutes + "m " + seconds + "s ";
+
+      // If the count down is finished, write some text
+      if (distance < 0) {
+        clearInterval(x);
+        document.getElementById("countdown").innerHTML = "EXPIRED";
+      }
+    }, 1000);
+  </script>
+{% endblock %}
+
+{% block 'admin' %}<a class="nav-link" href="/admin/ptree/project/{{ project.title }}/change/">Open in admin</a>{% endblock %}
+
+{% block 'content' %}
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      {% for node in project.get_ancestors %}
+      <li class="breadcrumb-item"><a href="/project/{{ node.title }}">{{ node.name }}</a></li>
+      {% endfor %}
+      <li class="breadcrumb-item active" aria-current="page">{{ project.name }}</li>
+    </ol>
+  </nav>
+
+  <div class="row">
+    <div class="col-md-8">
+      <h1 class="display-4">{{ data.name }}</h1>
+        <p class="lead">{{ description | md_html }}</p>
+        <div class="mt-5"></div>
+
+    </div>
+    <div class="col-md-4">
+      <div class="text-center">
+        <a class="btn btn-success" role="button" href="/project/{{ project.title }}/pay/">Donate</a>
+        <a class="btn btn-primary" role="button" href="{{ project.github_url }}" target="_blank">GitHub</a>
+        <a class="btn btn-primary" role="button" href="/project/{{ project.title }}/new/">Add sub-project</a>
+      </div>
+      <div class="mt-5"></div>
+
+      <p><strong>Raised:</strong> {{ project.get_total_payments }}
+        {% if data.threshold != None %}
+          of {{ data.threshold }}
+        {% endif %}
+      </p>
+      {% if data.limit != None %}
+        <p><strong>Needed:</strong> {{ data.limit }}</p>
+      {% endif %}
+      {% if data.expiration_time != None %}
+        <p id="countdown"><strong>Expires in:</strong> loading</p>
+      {% endif %}
+
+      <p><strong>State:</strong> {{ project.state }}</p>
+      <p><strong>Mantainers:</strong>
+        {% for m in project.mantainers.all %}
+          <a target="_blank" href="{{ m.get_profile }}">{{ m.username }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      <p><strong>Top donors:</strong>
+        {% for donor in donors %}
+          <a target="_blank" href="https://github.com/{{ donor }}">{{ donor }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      <p><strong>Children:</strong>
+        {% active project.get_children as active_children %}
+        {% for node in active_children %}
+            <a href="/project/{{ node.title }}">{{ node.name }}</a>{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+      </p>
+      <hr>
+      <h4>Projects tree</h4>
+      <div id="tree"></div>
+
+    </div>
+  </div>
+{% endblock %}

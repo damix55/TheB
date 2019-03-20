@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load app_filters %}
+{% load mptt_tags %}
+{% load static %}
+
+{% block 'title' %}
+  Tree view - The B
+{% endblock %}
+
+{% block 'head' %}
+  <link rel="stylesheet" href="{% static 'css/bootstrap-treeview.css' %}">
+{% endblock %}
+
+{% block 'js' %}
+  <script src="{% static 'js/bootstrap-treeview.js' %}"></script>
+  <script>
+    function getTree() {
+      var tree =
+      {
+      {% full_tree_for_model ptree.project as p %}
+        {% for node, structure in p|tree_info %}
+          {% if structure.new_level %}
+            nodes: [
+          {% else %}
+            },
+          {% endif %}
+            {
+                text: "{{ node.name }}",
+                href_li: "/project/{{ node.title }}",
+                {% if node.title == "the-b" %}
+                state: {
+                  selected: true
+                },
+                {% endif %}
+
+          {% for level in structure.closed_levels %}
+              }]
+          {% endfor %}
+
+        {% endfor %}
+        };
+      return tree.nodes;
+    }
+
+    $('#tree').treeview(
+      {
+        data: getTree(),
+        showIcon : false,
+      }
+    );
+  </script>
+{% endblock %}
+
+{% block 'content' %}
+  <h1>Projects tree</h1>
+  <br>
+  <div id="tree"></div>
+{% endblock %}
